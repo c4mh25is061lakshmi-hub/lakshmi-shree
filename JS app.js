@@ -1,5 +1,2 @@
 var app = angular.module('myApp', []);
-
-app.controller('MyController', function($scope) {
-    $scope.name = "khan";
-});
+app.controller('collgecontroller',fuction($scope))
