@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html ng-app="studentApp">
+<head>
+    <title>Student Details </title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+
+</head>
+<body
+ng-controller="studentController">
+<h2>Student Details</h2>
+<label>Username: </label>
+<input type="text" ng-model="student.username">
+placeholder="Enter your name"
+<br><br>
+<label>age: </label>
+<input type="number" ng-model="student.age">
+placeholder="Enter your age"
+<br><br>
+<label>Department </label>
+<input type="text"
+ng-model="department"
+placeholder="Enter department">
+<br><br>
+<label>Semester:</label>
+<input type="number"
+ng-model="semester"
+placeholder="Enter semester">
+<br><br>
+<h3>Student Information</h3>
+<p>Username :{{name}}</p>
+<p>Age :{{age}}</p>
+<p>Department :{{department}}</p>
+<p>Semester :{{semester}}</p>
+<script>
+    var app=app
+    angular.module('studentApp', []);
+    app.controller("studentController", function($scope) 
+    {$scope.name = "";
+     $scope.age = "";
+     $scope.department = "";
+     $scope.semester = "";
+    });
+</script>
+
+</body></html>
