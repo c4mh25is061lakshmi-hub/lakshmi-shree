@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="studentApp">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Management Mini Application</title>
+    <!-- Include AngularJS library reference -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        .form-group { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- Parent CollegeController -->
+    <div class="container" ng-controller="CollegeController">
+        <h2>{{ collegeName }} - Student Management Portal</h2>
+        <hr>
+
+        <!-- Child StudentController -->
+        <div ng-controller="StudentController">
+            
+            <h3>Student Entry Form</h3>
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" ng-model="inputName" placeholder="Enter name">
+            </div>
+            <div class="form-group">
+                <label>Department:</label>
+                <input type="text" ng-model="inputDepartment" placeholder="Enter department">
+            </div>
+            <div class="form-group">
+                <label>Semester:</label>
+                <input type="text" ng-model="inputSemester" placeholder="Enter semester">
+            </div>
+            <div class="form-group">
+                <label>Marks:</label>
+                <input type="number" ng-model="inputMarks" placeholder="Enter marks">
+            </div>
+
+            <!-- Live Display of Entered Details -->
+            <h4>Live Preview:</h4>
+            <p><strong>Name:</strong> {{ inputName }}</p>
+            <p><strong>Department:</strong> {{ inputDepartment }}</p>
+            <p><strong>Semester:</strong> {{ inputSemester }}</p>
+
+            <!-- Examination Result Section with ng-if and ng-class -->
+            <div ng-if="inputMarks !== undefined && inputMarks !== null && inputMarks !== ''">
+                <p><strong>Result Status:</strong> 
+                    <span ng-class="{'pass': inputMarks >= 40, 'fail': inputMarks < 40}">
+                        {{ inputMarks >= 40 ? 'Pass' : 'Needs Improvement' }}
+                    </span>
+                </p>
+            </div>
+
+            <br>
+            <!-- Actions -->
+            <button ng-click="addStudent()">Add Student</button>
+            <button ng-click="toggleDetails()">{{ showDetails ? 'Hide Details' : 'Show Details' }}</button>
+
+            <!-- Show or Hide Student Details Section -->
+            <div ng-show="showDetails">
+                <h3>Student List</h3>
+                <ul>
+                    <li ng-repeat="student in students">
+                        {{ student.name }} - {{ student.department }} (Sem: {{ student.semester }}, Marks: {{ student.marks }})
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Link to app.js -->
+    <script src="JS app.js"></script>
+</body>
+</html>
