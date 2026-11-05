@@ -1,25 +1,131 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="myApp">
+<html lang="en" ng-app="studentApp">
 <head>
     <meta charset="UTF-8">
-    <title>Student Management</title>
-
-    <script src="node_modules/angular/angular.js"></script>
-    <script src="app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
+<body ng-controller="StudentController">
 
-<body ng-controller ="myCtrl" >
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div>
+                <h1>🎓 Student Management</h1>
+                <p>Real-Time Academic Records</p>
+            </div>
+            <span class="admin">Admin</span>
+        </header>
 
-    <h2>product list</h2>
+        <!-- STATS -->
+        <section class="stats">
+            <div class="stat-card"><h3>Total</h3><h2>{{ students.length }}</h2></div>
+            <div class="stat-card"><h3>CS</h3><h2>{{ getBranchCount('CS') }}</h2></div>
+            <div class="stat-card"><h3>EC</h3><h2>{{ getBranchCount('EC') }}</h2></div>
+            <div class="stat-card"><h3>M / F</h3><h2>{{ getGenderCount('Male') }} / {{ getGenderCount('Female') }}</h2></div>
+        </section>
 
-    <input ng-model="searchText" placeholder="Search for products..">
-    <p>today's date is {{ today | date:'fullDate' }}</p>
+        <!-- TOOLBAR -->
+        <section class="toolbar">
+            <input type="text" ng-model="searchText" placeholder="Search name, roll no, email...">
+            <select ng-model="branchFilter">
+                <option value="">All Branches</option>
+                <option value="CS">CS</option>
+                <option value="EC">EC</option>
+                <option value="ME">ME</option>
+                <option value="IS">IS</option>
+            </select>
+            <select ng-model="sortColumn">
+                <option value="name">Sort Name</option>
+                <option value="roll_no">Sort Roll No</option>
+                <option value="gpa">Sort GPA</option>
+            </select>
+            <button class="sort-btn" ng-click="reverseSort = !reverseSort">
+                {{ reverseSort ? 'Desc' : 'Asc' }}
+            </button>
+        </section>
 
-    <div ng-repeat="p in products | filter:search">
-        {{ p.name }} - {{ p.price | currency:'₹' }}
+        <!-- MAIN CONTENT -->
+        <section class="main-content">
+            <!-- FORM -->
+            <div class="form-box">
+                <h2>{{ editingStudent ? 'Edit Student' : 'Add Student' }}</h2>
+                <form name="studentForm" ng-submit="saveStudent()" novalidate>
+                    <label>Name</label>
+                    <input type="text" ng-model="newStudent.name" required placeholder="Name">
+
+                    <label>Roll No</label>
+                    <input type="text" ng-model="newStudent.roll_no" required placeholder="Roll No">
+
+                    <label>Branch</label>
+                    <select ng-model="newStudent.branch" required>
+                        <option value="">Select</option>
+                        <option value="CS">CS</option><option value="EC">EC</option>
+                        <option value="ME">ME</option><option value="IS">IS</option>
+                    </select>
+
+                    <label>Email</label>
+                    <input type="email" ng-model="newStudent.email" required placeholder="Email">
+
+                    <label>GPA</label>
+                    <input type="number" ng-model="newStudent.gpa" min="0" max="10" step="0.1" required placeholder="GPA">
+
+                    <label>Gender</label>
+                    <select ng-model="newStudent.gender" required>
+                        <option value="">Select</option>
+                        <option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                    </select>
+
+                    <button type="submit" class="add-btn" ng-disabled="studentForm.$invalid || loading">
+                        {{ editingStudent ? 'Update' : 'Add' }}
+                    </button>
+                    <button type="button" class="cancel-btn" ng-click="cancelEdit()" ng-if="editingStudent">Cancel</button>
+                </form>
+                <p class="message" ng-if="message">{{ message }}</p>
+                <p class="error" ng-if="errorMessage">{{ errorMessage }}</p>
+            </div>
+
+            <!-- TABLE -->
+            <div class="table-box">
+                <h2>Directory</h2>
+                <div ng-if="loading">Loading...</div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Roll No</th><th>Name</th><th>Branch</th><th>GPA</th><th>Email</th><th>Gender</th><th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="student in students | filter:searchText | filter:branchFilterFn | orderBy:sortColumn:reverseSort">
+                                <td>{{ student.roll_no }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.branch }}</td>
+                                <td>{{ student.gpa }}</td>
+                                <td>{{ student.email }}</td>
+                                <td>{{ student.gender }}</td>
+                                <td>
+                                    <button class="edit-btn" ng-click="editStudent(student)">Edit</>
+                                    <button class="delete-btn" ng-click="deleteStudent(student)">Del</>
+                                </td>
+                            </tr>
+                            <tr ng-if="!loading && filteredCount() === 0">
+                                <td colspan="7">No students found.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="total">Showing {{ filteredCount() }} student(s)</p>
+            </div>
+        </section>
+
+        <footer>
+            <p>Student Management Dashboard | Academic Project</p>
+        </footer>
     </div>
 
-
-
+    <script src="app.js"></script>
 </body>
 </html>
