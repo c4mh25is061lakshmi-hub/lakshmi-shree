@@ -2,78 +2,55 @@
 <html lang="en" ng-app="studentApp">
 <head>
     <meta charset="UTF-8">
-    <title>Student Management Mini Application</title>
-    <!-- Include AngularJS library reference -->
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
-    <style>
-        .pass { color: green; font-weight: bold; }
-        .fail { color: red; font-weight: bold; }
-        body { font-family: Arial, sans-serif; margin: 30px; }
-        .form-group { margin-bottom: 10px; }
-    </style>
+    <title>Student Management</title>
+
+    <script src="node_modules/angular/angular.js"></script>
+    <script src="app.js"></script>
 </head>
-<body>
 
-    <!-- Parent CollegeController -->
-    <div class="container" ng-controller="CollegeController">
-        <h2>{{ collegeName }} - Student Management Portal</h2>
-        <hr>
+<body ng-controller="StudentController">
 
-        <!-- Child StudentController -->
-        <div ng-controller="StudentController">
-            
-            <h3>Student Entry Form</h3>
-            <div class="form-group">
-                <label>Name:</label>
-                <input type="text" ng-model="inputName" placeholder="Enter name">
-            </div>
-            <div class="form-group">
-                <label>Department:</label>
-                <input type="text" ng-model="inputDepartment" placeholder="Enter department">
-            </div>
-            <div class="form-group">
-                <label>Semester:</label>
-                <input type="text" ng-model="inputSemester" placeholder="Enter semester">
-            </div>
-            <div class="form-group">
-                <label>Marks:</label>
-                <input type="number" ng-model="inputMarks" placeholder="Enter marks">
-            </div>
+    <h1>Student Management</h1>
 
-            <!-- Live Display of Entered Details -->
-            <h4>Live Preview:</h4>
-            <p><strong>Name:</strong> {{ inputName }}</p>
-            <p><strong>Department:</strong> {{ inputDepartment }}</p>
-            <p><strong>Semester:</strong> {{ inputSemester }}</p>
+    <form ng-submit="saveStudent()">
+        <input type="text" ng-model="student.name"
+               placeholder="Student Name" required>
 
-            <!-- Examination Result Section with ng-if and ng-class -->
-            <div ng-if="inputMarks !== undefined && inputMarks !== null && inputMarks !== ''">
-                <p><strong>Result Status:</strong> 
-                    <span ng-class="{'pass': inputMarks >= 40, 'fail': inputMarks < 40}">
-                        {{ inputMarks >= 40 ? 'Pass' : 'Needs Improvement' }}
-                    </span>
-                </p>
-            </div>
+        <input type="text" ng-model="student.department"
+               placeholder="Department" required>
 
-            <br>
-            <!-- Actions -->
-            <button ng-click="addStudent()">Add Student</button>
-            <button ng-click="toggleDetails()">{{ showDetails ? 'Hide Details' : 'Show Details' }}</button>
+        <button type="submit">
+            {{ student.id ? 'Update Student' : 'Add Student' }}
+        </button>
 
-            <!-- Show or Hide Student Details Section -->
-            <div ng-show="showDetails">
-                <h3>Student List</h3>
-                <ul>
-                    <li ng-repeat="student in students">
-                        {{ student.name }} - {{ student.department }} (Sem: {{ student.semester }}, Marks: {{ student.marks }})
-                    </li>
-                </ul>
-            </div>
+        <button type="button" ng-click="cancelEdit()"
+                ng-if="student.id">
+            Cancel
+        </button>
+    </form>
 
-        </div>
-    </div>
+    <hr>
 
-    <!-- Link to app.js -->
-    <script src="JS app.js"></script>
+    <h2>Student List</h2>
+
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Actions</th>
+        </tr>
+
+        <tr ng-repeat="s in students">
+            <td>{{ s.id }}</td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.department }}</td>
+            <td>
+                <button ng-click="editStudent(s)">Edit</button>
+                <button ng-click="deleteStudent(s.id)">Delete</button>
+            </td>
+        </tr>
+    </table>
+
 </body>
 </html>
