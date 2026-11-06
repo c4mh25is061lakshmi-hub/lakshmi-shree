@@ -1,131 +1,412 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="studentApp">
+<html lang="en" ng-app="studentPortalApp">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Dashboard</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Cohort Management Portal</title>
+  
+  <!-- Modern Google Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- AngularJS 1.8.2 CDN -->
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
 </head>
 <body ng-controller="StudentController">
 
-    <div class="container">
-        <!-- HEADER -->
-        <header>
-            <div>
-                <h1>🎓 Student Management</h1>
-                <p>Real-Time Academic Records</p>
-            </div>
-            <span class="admin">Admin</span>
-        </header>
+  <!-- ========================================================
+       TOP HEADER & LIVE METRIC SUMMARY CARDS
+       ======================================================== -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-badge">DEPARTMENT OF ENGINEERING</div>
+        <h1 class="brand-title">Student Cohort Management Portal</h1>
+        <p class="brand-subtitle">Real-Time Reactive Directory & Academic Mentoring Administration</p>
+      </div>
 
-        <!-- STATS -->
-        <section class="stats">
-            <div class="stat-card"><h3>Total</h3><h2>{{ students.length }}</h2></div>
-            <div class="stat-card"><h3>CS</h3><h2>{{ getBranchCount('CS') }}</h2></div>
-            <div class="stat-card"><h3>EC</h3><h2>{{ getBranchCount('EC') }}</h2></div>
-            <div class="stat-card"><h3>M / F</h3><h2>{{ getGenderCount('Male') }} / {{ getGenderCount('Female') }}</h2></div>
-        </section>
-
-        <!-- TOOLBAR -->
-        <section class="toolbar">
-            <input type="text" ng-model="searchText" placeholder="Search name, roll no, email...">
-            <select ng-model="branchFilter">
-                <option value="">All Branches</option>
-                <option value="CS">CS</option>
-                <option value="EC">EC</option>
-                <option value="ME">ME</option>
-                <option value="IS">IS</option>
-            </select>
-            <select ng-model="sortColumn">
-                <option value="name">Sort Name</option>
-                <option value="roll_no">Sort Roll No</option>
-                <option value="gpa">Sort GPA</option>
-            </select>
-            <button class="sort-btn" ng-click="reverseSort = !reverseSort">
-                {{ reverseSort ? 'Desc' : 'Asc' }}
-            </button>
-        </section>
-
-        <!-- MAIN CONTENT -->
-        <section class="main-content">
-            <!-- FORM -->
-            <div class="form-box">
-                <h2>{{ editingStudent ? 'Edit Student' : 'Add Student' }}</h2>
-                <form name="studentForm" ng-submit="saveStudent()" novalidate>
-                    <label>Name</label>
-                    <input type="text" ng-model="newStudent.name" required placeholder="Name">
-
-                    <label>Roll No</label>
-                    <input type="text" ng-model="newStudent.roll_no" required placeholder="Roll No">
-
-                    <label>Branch</label>
-                    <select ng-model="newStudent.branch" required>
-                        <option value="">Select</option>
-                        <option value="CS">CS</option><option value="EC">EC</option>
-                        <option value="ME">ME</option><option value="IS">IS</option>
-                    </select>
-
-                    <label>Email</label>
-                    <input type="email" ng-model="newStudent.email" required placeholder="Email">
-
-                    <label>GPA</label>
-                    <input type="number" ng-model="newStudent.gpa" min="0" max="10" step="0.1" required placeholder="GPA">
-
-                    <label>Gender</label>
-                    <select ng-model="newStudent.gender" required>
-                        <option value="">Select</option>
-                        <option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
-                    </select>
-
-                    <button type="submit" class="add-btn" ng-disabled="studentForm.$invalid || loading">
-                        {{ editingStudent ? 'Update' : 'Add' }}
-                    </button>
-                    <button type="button" class="cancel-btn" ng-click="cancelEdit()" ng-if="editingStudent">Cancel</button>
-                </form>
-                <p class="message" ng-if="message">{{ message }}</p>
-                <p class="error" ng-if="errorMessage">{{ errorMessage }}</p>
-            </div>
-
-            <!-- TABLE -->
-            <div class="table-box">
-                <h2>Directory</h2>
-                <div ng-if="loading">Loading...</div>
-                <div class="table-scroll">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Roll No</th><th>Name</th><th>Branch</th><th>GPA</th><th>Email</th><th>Gender</th><th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr ng-repeat="student in students | filter:searchText | filter:branchFilterFn | orderBy:sortColumn:reverseSort">
-                                <td>{{ student.roll_no }}</td>
-                                <td>{{ student.name }}</td>
-                                <td>{{ student.branch }}</td>
-                                <td>{{ student.gpa }}</td>
-                                <td>{{ student.email }}</td>
-                                <td>{{ student.gender }}</td>
-                                <td>
-                                    <button class="edit-btn" ng-click="editStudent(student)">Edit</>
-                                    <button class="delete-btn" ng-click="deleteStudent(student)">Del</>
-                                </td>
-                            </tr>
-                            <tr ng-if="!loading && filteredCount() === 0">
-                                <td colspan="7">No students found.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p class="total">Showing {{ filteredCount() }} student(s)</p>
-            </div>
-        </section>
-
-        <footer>
-            <p>Student Management Dashboard | Academic Project</p>
-        </footer>
+      <div class="header-actions">
+        <button class="btn btn-secondary" ng-click="exportCSV()" title="Export filtered records as CSV">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-outline" ng-click="resetToSampleData()" title="Restore default sample students">
+          Reset Data
+        </button>
+      </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Live Metric Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-label">Total Cohort</span>
+        <div class="metric-value">{{ students.length }}</div>
+        <span class="metric-meta">Enrolled active students</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">Branch Distribution</span>
+        <div class="metric-distribution">
+          <span><strong>CS:</strong> {{ getBranchCount('CS') }}</span>
+          <span><strong>EC:</strong> {{ getBranchCount('EC') }}</span>
+          <span><strong>ME:</strong> {{ getBranchCount('ME') }}</span>
+          <span><strong>IS:</strong> {{ getBranchCount('IS') }}</span>
+        </div>
+        <span class="metric-meta">{{ branches.length }} Academic Branches</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">Cohort Mean GPA</span>
+        <div class="metric-value">{{ getAverageGPA() }} <span class="metric-sub">/ 10.0</span></div>
+        <span class="metric-meta">{{ getHonorsCount() }} Students on Dean's List (≥8.5)</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">Gender Diversity</span>
+        <div class="metric-value">{{ getGenderCount('Female') }}F : {{ getGenderCount('Male') }}M</div>
+        <span class="metric-meta">{{ getFemalePercentage() }}% Female Cohort Ratio</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================
+       SEARCH & FILTER CONTROL TOOLBAR
+       ======================================================== -->
+  <section class="toolbar-section">
+    <div class="toolbar-container">
+      <!-- Instant Live Search (ng-model="searchText") -->
+      <div class="search-box">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input 
+          type="text" 
+          class="form-control search-input" 
+          placeholder="Search by Name, Roll No (CS101), Email..." 
+          ng-model="searchText"
+          ng-change="currentPage = 1">
+        <button class="clear-btn" ng-show="searchText" ng-click="searchText = ''; currentPage = 1">&times;</button>
+      </div>
+
+      <!-- Department Filter Dropdown (ng-model="selectedBranch") -->
+      <div class="filter-group">
+        <label for="branchFilter">Branch:</label>
+        <select id="branchFilter" class="form-control select-control" ng-model="selectedBranch" ng-change="currentPage = 1">
+          <option value="">All Departments</option>
+          <option ng-repeat="b in branches" value="{{ b }}">{{ b }} Department</option>
+        </select>
+      </div>
+
+      <!-- Sorting Criteria (ng-model="sortField") -->
+      <div class="filter-group">
+        <label for="sortBy">Sort By:</label>
+        <select id="sortBy" class="form-control select-control" ng-model="sortField">
+          <option value="rollNo">Roll Number</option>
+          <option value="name">Student Name</option>
+          <option value="gpa">GPA Score</option>
+          <option value="branch">Branch</option>
+        </select>
+        <button class="btn btn-icon" ng-click="reverseSort = !reverseSort" title="Toggle Ascending/Descending">
+          <span ng-show="!reverseSort">&#9650; Asc</span>
+          <span ng-show="reverseSort">&#9660; Desc</span>
+        </button>
+      </div>
+
+      <!-- Live Count Status -->
+      <div class="record-counter">
+        Showing <strong>{{ (students | filter:customFilter).length }}</strong> of {{ students.length }} records
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       SPLIT VIEW LAYOUT:
+       LEFT: Registration & In-Place Edit Form
+       RIGHT: Live Data Table with Pagination
+       ======================================================== -->
+  <main class="main-layout">
+    
+    <!-- LEFT PANE: REGISTRATION & IN-PLACE EDIT FORM -->
+    <aside class="form-pane">
+      <div class="card form-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">{{ isEditing ? 'Edit Student Details' : 'Register New Student' }}</h2>
+            <p class="card-subtitle">
+              {{ isEditing ? 'Modifying record for ' + currentEditRollNo : 'Fill details below with two-way field validation.' }}
+            </p>
+          </div>
+          <span class="badge" ng-class="isEditing ? 'badge-amber' : 'badge-primary'">
+            {{ isEditing ? 'In-Place Edit' : 'New Entry' }}
+          </span>
+        </div>
+
+        <form name="studentFormEl" ng-submit="saveStudent()" novalidate>
+          
+          <!-- Full Name -->
+          <div class="form-group">
+            <label for="name">Full Name <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="name" 
+              name="name" 
+              class="form-control" 
+              placeholder="e.g. Ananya Rao" 
+              ng-model="formData.name" 
+              required
+              ng-minlength="3">
+            <div class="error-msg" ng-show="formSubmitted && studentFormEl.name.$invalid">
+              <span ng-show="studentFormEl.name.$error.required">Full name is required.</span>
+              <span ng-show="studentFormEl.name.$error.minlength">Name must have at least 3 letters.</span>
+            </div>
+          </div>
+
+          <!-- Roll Number -->
+          <div class="form-group">
+            <label for="rollNo">Roll Number <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="rollNo" 
+              name="rollNo" 
+              class="form-control uppercase" 
+              placeholder="e.g. CS101, EC204" 
+              ng-model="formData.rollNo" 
+              required
+              ng-pattern="/^[A-Z]{2}[0-9]{3}$/">
+            <small class="help-text">Pattern: 2 letters department + 3 digits (e.g. CS101, EC204)</small>
+            <div class="error-msg" ng-show="formSubmitted && (studentFormEl.rollNo.$invalid || duplicateRollError)">
+              <span ng-show="studentFormEl.rollNo.$error.required">Roll number is required.</span>
+              <span ng-show="studentFormEl.rollNo.$error.pattern">Must follow pattern (e.g. CS101, ME402).</span>
+              <span ng-show="duplicateRollError">Roll number already exists in cohort!</span>
+            </div>
+          </div>
+
+          <!-- Branch Dropdown -->
+          <div class="form-group">
+            <label for="branch">Branch / Department <span class="required">*</span></label>
+            <select 
+              id="branch" 
+              name="branch" 
+              class="form-control select-control" 
+              ng-model="formData.branch" 
+              required>
+              <option value="" disabled>Select Department</option>
+              <option ng-repeat="b in branches" value="{{ b }}">{{ b }} - {{ getBranchFullName(b) }}</option>
+            </select>
+            <div class="error-msg" ng-show="formSubmitted && studentFormEl.branch.$invalid">
+              Please choose an academic department.
+            </div>
+          </div>
+
+          <!-- GPA and Gender Row -->
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label for="gpa">GPA (0.0 - 10.0) <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="gpa" 
+                name="gpa" 
+                step="0.1" 
+                min="0" 
+                max="10" 
+                class="form-control" 
+                placeholder="e.g. 8.9" 
+                ng-model="formData.gpa" 
+                required>
+              <div class="error-msg" ng-show="formSubmitted && studentFormEl.gpa.$invalid">
+                Enter valid GPA (0.0 to 10.0).
+              </div>
+            </div>
+
+            <div class="form-group col-half">
+              <label for="gender">Gender <span class="required">*</span></label>
+              <select id="gender" name="gender" class="form-control select-control" ng-model="formData.gender" required>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- University Email -->
+          <div class="form-group">
+            <label for="email">University Email <span class="required">*</span></label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              class="form-control" 
+              placeholder="e.g. ananya@univ.edu" 
+              ng-model="formData.email" 
+              required>
+            <div class="error-msg" ng-show="formSubmitted && studentFormEl.email.$invalid">
+              <span ng-show="studentFormEl.email.$error.required">Email is required.</span>
+              <span ng-show="studentFormEl.email.$error.email">Enter a valid email address.</span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block">
+              {{ isEditing ? 'Update Student Record' : 'Register Student' }}
+            </button>
+            <button type="button" class="btn btn-secondary btn-block" ng-show="isEditing" ng-click="cancelEdit()">
+              Cancel Editing
+            </button>
+          </div>
+        </form>
+      </div>
+    </aside>
+
+    <!-- RIGHT PANE: LIVE DATA TABLE & PAGINATION -->
+    <section class="table-pane">
+      <div class="card table-card">
+        
+        <div class="card-header table-card-header">
+          <div>
+            <h2 class="card-title">Enrolled Student Cohort Directory</h2>
+            <p class="card-subtitle">Click table headers to re-order. Filtered in realtime.</p>
+          </div>
+          <div class="table-meta">
+            Page {{ currentPage }} of {{ numberOfPages() || 1 }}
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th ng-click="sortBy('rollNo')" class="sortable-th">
+                  Roll No <span class="sort-indicator" ng-show="sortField === 'rollNo'">{{ reverseSort ? '▼' : '▲' }}</span>
+                </th>
+                <th ng-click="sortBy('name')" class="sortable-th">
+                  Student Name <span class="sort-indicator" ng-show="sortField === 'name'">{{ reverseSort ? '▼' : '▲' }}</span>
+                </th>
+                <th ng-click="sortBy('branch')" class="sortable-th">
+                  Branch <span class="sort-indicator" ng-show="sortField === 'branch'">{{ reverseSort ? '▼' : '▲' }}</span>
+                </th>
+                <th ng-click="sortBy('gpa')" class="sortable-th">
+                  GPA <span class="sort-indicator" ng-show="sortField === 'gpa'">{{ reverseSort ? '▼' : '▲' }}</span>
+                </th>
+                <th>Email</th>
+                <th>Gender</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Empty State -->
+              <tr ng-if="(students | filter:customFilter).length === 0">
+                <td colspan="7" class="empty-state">
+                  <div class="empty-content">
+                    <p class="empty-title">No student records match the active query</p>
+                    <p class="empty-desc">Try clearing your search query or department filter.</p>
+                    <button class="btn btn-secondary btn-sm" ng-click="searchText = ''; selectedBranch = '';">
+                      Clear Filters
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Data Rows: ng-repeat with filters, orderBy, and startFrom:limitTo pagination -->
+              <tr ng-repeat="student in filteredStudents = (students | filter:customFilter | orderBy:sortField:reverseSort) | startFrom:(currentPage - 1) * pageSize | limitTo:pageSize"
+                  ng-class="{'row-highlight': isEditing && currentEditId === student.id}">
+                
+                <td class="roll-cell">
+                  <code>{{ student.rollNo }}</code>
+                </td>
+
+                <td>
+                  <div class="student-profile">
+                    <div class="avatar" ng-style="{'background-color': getAvatarColor(student.name)}">
+                      {{ student.name.charAt(0) }}
+                    </div>
+                    <span class="student-name">{{ student.name }}</span>
+                  </div>
+                </td>
+
+                <td>
+                  <span class="badge" ng-class="'badge-' + student.branch.toLowerCase()">
+                    {{ student.branch }}
+                  </span>
+                </td>
+
+                <td>
+                  <span class="gpa-badge" ng-class="getGPABadgeClass(student.gpa)">
+                    {{ student.gpa | number:1 }}
+                  </span>
+                </td>
+
+                <td class="email-cell">{{ student.email }}</td>
+                
+                <td>{{ student.gender }}</td>
+
+                <td class="text-right action-cell">
+                  <button class="btn btn-sm btn-outline" ng-click="editStudent(student)" title="In-place edit">
+                    Edit
+                  </button>
+                  <button class="btn btn-sm btn-danger-outline" ng-click="promptDelete(student)" title="Delete with safeguard">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-footer">
+          <div class="pagination-info">
+            Showing {{ ((currentPage - 1) * pageSize) + 1 }} to {{ getUpperBound() }} of {{ (students | filter:customFilter).length }} entries
+          </div>
+
+          <div class="pagination-buttons">
+            <button class="btn btn-sm btn-secondary" ng-disabled="currentPage === 1" ng-click="currentPage = currentPage - 1">
+              &laquo; Previous
+            </button>
+            
+            <span class="page-indicator">
+              Page {{ currentPage }} / {{ numberOfPages() || 1 }}
+            </span>
+
+            <button class="btn btn-sm btn-secondary" ng-disabled="currentPage >= numberOfPages()" ng-click="currentPage = currentPage + 1">
+              Next &raquo;
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================
+       DELETION SAFEGUARD CONFIRMATION MODAL (ng-show)
+       ======================================================== -->
+  <div class="modal-overlay" ng-show="showDeleteModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirm Student Deletion</h3>
+        <button class="modal-close" ng-click="cancelDelete()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to permanently remove this student record?</p>
+        <div class="delete-summary" ng-if="studentToDelete">
+          <strong>{{ studentToDelete.name }}</strong> (Roll No: <code>{{ studentToDelete.rollNo }}</code>)<br>
+          <small>{{ studentToDelete.branch }} Department &bull; GPA: {{ studentToDelete.gpa }}</small>
+        </div>
+        <p class="warning-text">This safeguard ensures records are not removed accidentally.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" ng-click="cancelDelete()">Cancel</button>
+        <button class="btn btn-danger" ng-click="confirmDelete()">Yes, Delete Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include Application Controller Script -->
+  <script src="app.js"></script>
 </body>
 </html>
