@@ -17,7 +17,56 @@ app.filter('startFrom', function() {
 });
 
 // 3. Main Controller with $scope and $http
-app.controller('StudentController', function($scope, $http) {
+app.controller('StudentController', function($scope, $http, $q) {
+  var supabaseConfig = window.SUPABASE_CONFIG || {};
+  var supabaseUrl = (supabaseConfig.url || '').replace(/\/+$/, '') + '/rest/v1/students';
+  var supabaseAnonKey = supabaseConfig.anonKey || '';
+
+  function supabaseRequest(method, query, data, prefer) {
+    if (!supabaseConfig.url || !supabaseAnonKey || supabaseAnonKey === 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE') {
+      return $q.reject(new Error('Add your current Supabase anon/public key to supabase-config.js.'));
+    }
+
+    var headers = {
+      apikey: supabaseAnonKey,
+      Authorization: 'Bearer ' + supabaseAnonKey,
+      'Content-Type': 'application/json'
+    };
+
+    if (prefer) {
+      headers.Prefer = prefer;
+    }
+
+    return $http({
+      method: method,
+      url: supabaseUrl + (query ? '?' + query : ''),
+      headers: headers,
+      data: data
+    });
+  }
+
+  function mapStudent(row) {
+    return {
+      id: row.id,
+      rollNo: row.roll_no,
+      name: row.name,
+      branch: row.branch,
+      gpa: Number(row.gpa),
+      email: row.email,
+      gender: row.gender
+    };
+  }
+
+  function getRequestError(error) {
+    var details = error.data;
+    if (details && typeof details === 'object') {
+      if (details.code === '23505') {
+        return 'That roll number is already registered.';
+      }
+      return details.message || details.details || details.hint || error.statusText;
+    }
+    return details || error.statusText || 'Unknown Supabase error.';
+  }
 
   // Initial Sample Cohort Data (Matches lab syllabus specification)
   $scope.defaultStudents = [
@@ -35,17 +84,13 @@ app.controller('StudentController', function($scope, $http) {
     { id: 12, rollNo: "EC220", name: "Farhan Siddiqui", branch: "EC", gpa: 6.9, email: "farhan.s@univ.edu", gender: "Male" }
   ];
 
-  // Load from browser localStorage, or fallback to default dataset
-  var saved = localStorage.getItem('cohort_students');
-  if (saved) {
-    try {
-      $scope.students = JSON.parse(saved);
-    } catch(e) {
-      $scope.students = angular.copy($scope.defaultStudents);
-    }
-  } else {
-    $scope.students = angular.copy($scope.defaultStudents);
-  }
+  $scope.students = [];
+  $scope.isLoading = true;
+  $scope.isSaving = false;
+  $scope.isDeleting = false;
+  $scope.connectionStatus = 'Connecting to Supabase...';
+  $scope.connectionError = '';
+  $scope.formError = '';
 
   // Branch Departments
   $scope.branches = ['CS', 'EC', 'ME', 'IS', 'AI'];
@@ -67,6 +112,8 @@ app.controller('StudentController', function($scope, $http) {
   $scope.currentEditRollNo = '';
   $scope.formSubmitted = false;
   $scope.duplicateRollError = false;
+  $scope.nameValidationError = false;
+  $scope.successMessage = '';
 
   $scope.resetForm = function() {
     $scope.formData = {
@@ -82,6 +129,7 @@ app.controller('StudentController', function($scope, $http) {
     $scope.currentEditRollNo = '';
     $scope.formSubmitted = false;
     $scope.duplicateRollError = false;
+    $scope.nameValidationError = false;
   };
 
   $scope.resetForm();
@@ -143,17 +191,32 @@ app.controller('StudentController', function($scope, $http) {
   $scope.saveStudent = function() {
     $scope.formSubmitted = true;
     $scope.duplicateRollError = false;
+    $scope.nameValidationError = !$scope.formData.name || !$scope.formData.name.trim();
+    $scope.successMessage = '';
+    $scope.formError = '';
 
-    if ($scope.studentFormEl.$invalid) {
+    if ($scope.isSaving || $scope.studentFormEl.$invalid || $scope.nameValidationError) {
       return;
     }
 
+    var cleanName = $scope.formData.name.trim();
     var cleanRoll = $scope.formData.rollNo.trim().toUpperCase();
-    var parsedGpa = parseFloat($scope.formData.gpa);
+    var comparableRoll = cleanRoll.replace(/-/g, '');
+    var parsedGpa = Number($scope.formData.gpa);
+    var wasEditing = $scope.isEditing;
+    var payload = {
+      roll_no: cleanRoll,
+      name: cleanName,
+      branch: $scope.formData.branch,
+      gpa: parsedGpa,
+      email: $scope.formData.email.trim(),
+      gender: $scope.formData.gender
+    };
 
     // Roll number uniqueness validation
     var duplicate = $scope.students.some(function(s) {
-      return s.rollNo.toUpperCase() === cleanRoll && s.id !== $scope.currentEditId;
+      return String(s.rollNo).toUpperCase().replace(/-/g, '') === comparableRoll &&
+        String(s.id) !== String($scope.currentEditId);
     });
 
     if (duplicate) {
@@ -161,35 +224,49 @@ app.controller('StudentController', function($scope, $http) {
       return;
     }
 
-    if ($scope.isEditing) {
-      // In-place edit
-      for (var i = 0; i < $scope.students.length; i++) {
-        if ($scope.students[i].id === $scope.currentEditId) {
-          $scope.students[i].name = $scope.formData.name.trim();
-          $scope.students[i].rollNo = cleanRoll;
-          $scope.students[i].branch = $scope.formData.branch;
-          $scope.students[i].gpa = parsedGpa;
-          $scope.students[i].email = $scope.formData.email.trim();
-          $scope.students[i].gender = $scope.formData.gender;
-          break;
-        }
-      }
-    } else {
-      // New Registration
-      var newStudent = {
-        id: Date.now(),
-        rollNo: cleanRoll,
-        name: $scope.formData.name.trim(),
-        branch: $scope.formData.branch,
-        gpa: parsedGpa,
-        email: $scope.formData.email.trim(),
-        gender: $scope.formData.gender
-      };
-      $scope.students.unshift(newStudent);
-    }
+    $scope.isSaving = true;
+    var request = wasEditing
+      ? supabaseRequest('PATCH', 'id=eq.' + encodeURIComponent($scope.currentEditId) + '&select=*', payload, 'return=representation')
+      : supabaseRequest('POST', 'select=*', payload, 'return=representation');
 
-    $scope.saveToStorage();
-    $scope.resetForm();
+    request.then(function(response) {
+      if (!response.data || !response.data.length) {
+        throw new Error(wasEditing
+          ? 'No student was updated. The record may have been removed.'
+          : 'Supabase did not return the new student record.');
+      }
+
+      var savedStudent = mapStudent(response.data[0]);
+      if (wasEditing) {
+        var index = $scope.students.findIndex(function(student) {
+          return String(student.id) === String(savedStudent.id);
+        });
+        if (index === -1) {
+          $scope.students.push(savedStudent);
+        } else {
+          $scope.students[index] = savedStudent;
+        }
+      } else {
+        $scope.students.unshift(savedStudent);
+        $scope.currentPage = 1;
+      }
+
+      $scope.connectionStatus = 'Connected to Supabase';
+      $scope.successMessage = wasEditing
+        ? 'Student record updated successfully.'
+        : 'Student registered successfully.';
+      $scope.resetForm();
+    }).catch(function(error) {
+      console.error('Supabase save failed:', error);
+      $scope.formError = error.message || getRequestError(error);
+      if (error.status) {
+        $scope.formError = getRequestError(error);
+      }
+      $scope.connectionError = $scope.formError;
+      $scope.connectionStatus = 'Supabase request failed';
+    }).finally(function() {
+      $scope.isSaving = false;
+    });
   };
 
   // In-place edit button handler
@@ -207,6 +284,7 @@ app.controller('StudentController', function($scope, $http) {
     };
     $scope.formSubmitted = false;
     $scope.duplicateRollError = false;
+    $scope.formError = '';
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -230,20 +308,38 @@ app.controller('StudentController', function($scope, $http) {
   };
 
   $scope.confirmDelete = function() {
-    if (!$scope.studentToDelete) return;
+    if (!$scope.studentToDelete || $scope.isDeleting) return;
 
-    var index = $scope.students.indexOf($scope.studentToDelete);
-    if (index !== -1) {
-      $scope.students.splice(index, 1);
-      $scope.saveToStorage();
-
-      if ($scope.currentEditId === $scope.studentToDelete.id) {
-        $scope.resetForm();
-      }
-    }
-
-    $scope.showDeleteModal = false;
-    $scope.studentToDelete = null;
+    var student = $scope.studentToDelete;
+    $scope.isDeleting = true;
+    $scope.connectionError = '';
+    supabaseRequest('DELETE', 'id=eq.' + encodeURIComponent(student.id) + '&select=id', null, 'return=representation')
+      .then(function(response) {
+        if (!response.data || !response.data.length) {
+          throw new Error('No student was deleted. The record may already be gone.');
+        }
+        $scope.students = $scope.students.filter(function(item) {
+          return String(item.id) !== String(student.id);
+        });
+        if (String($scope.currentEditId) === String(student.id)) {
+          $scope.resetForm();
+        }
+        $scope.currentPage = Math.min($scope.currentPage, $scope.numberOfPages());
+        $scope.showDeleteModal = false;
+        $scope.studentToDelete = null;
+        $scope.connectionStatus = 'Connected to Supabase';
+      })
+      .catch(function(error) {
+        console.error('Supabase delete failed:', error);
+        $scope.connectionError = error.message || getRequestError(error);
+        if (error.status) {
+          $scope.connectionError = getRequestError(error);
+        }
+        $scope.connectionStatus = 'Supabase request failed';
+      })
+      .finally(function() {
+        $scope.isDeleting = false;
+      });
   };
 
   // Live Metrics
@@ -320,36 +416,70 @@ app.controller('StudentController', function($scope, $http) {
   };
 
   $scope.resetToSampleData = function() {
-    if (confirm('Reset cohort data back to default sample records?')) {
-      $scope.students = angular.copy($scope.defaultStudents);
-      $scope.saveToStorage();
-      $scope.resetForm();
+    if (!confirm('Restore any missing sample students? Existing student records will not be changed.')) {
+      return;
     }
-  };
 
-  $scope.saveToStorage = function() {
-    try {
-      localStorage.setItem('cohort_students', JSON.stringify($scope.students));
-    } catch(e) {
-      console.warn('Storage not available', e);
-    }
-  };
+    var samples = $scope.defaultStudents.map(function(student) {
+      return {
+        roll_no: student.rollNo,
+        name: student.name,
+        branch: student.branch,
+        gpa: student.gpa,
+        email: student.email,
+        gender: student.gender
+      };
+    });
+    $scope.connectionError = '';
+    $scope.connectionStatus = 'Restoring sample students...';
 
-  // Optional: Supabase REST Extension ($http.get)
-  $scope.fetchFromSupabase = function(supabaseUrl, supabaseAnonKey) {
-    if (!supabaseUrl || !supabaseAnonKey) return;
-    $http({
-      method: 'GET',
-      url: supabaseUrl + '/rest/v1/students?select=*',
-      headers: {
-        'apikey': supabaseAnonKey,
-        'Authorization': 'Bearer ' + supabaseAnonKey
+    supabaseRequest(
+      'POST',
+      'on_conflict=roll_no&select=*',
+      samples,
+      'resolution=ignore-duplicates,return=representation'
+    ).then(function() {
+      return $scope.loadStudents();
+    }).then(function() {
+      $scope.successMessage = 'Sample students restored. Existing records were kept.';
+      $scope.connectionStatus = 'Connected to Supabase';
+    }).catch(function(error) {
+      console.error('Supabase sample restore failed:', error);
+      $scope.connectionError = error.message || getRequestError(error);
+      if (error.status) {
+        $scope.connectionError = getRequestError(error);
       }
-    }).then(function(response) {
-      console.log('Synchronized with Supabase:', response.data);
-    }, function(error) {
-      console.error('Supabase fetch failed:', error);
+      $scope.connectionStatus = 'Supabase request failed';
     });
   };
+
+  $scope.loadStudents = function() {
+    $scope.isLoading = true;
+    $scope.connectionError = '';
+    $scope.connectionStatus = 'Loading students from Supabase...';
+
+    return supabaseRequest('GET', 'select=*&order=id.asc')
+      .then(function(response) {
+        if (!Array.isArray(response.data)) {
+          throw new Error('Supabase returned an invalid student list.');
+        }
+        $scope.students = response.data.map(mapStudent);
+        $scope.connectionStatus = 'Connected to Supabase';
+      })
+      .catch(function(error) {
+        console.error('Supabase load failed:', error);
+        $scope.students = [];
+        $scope.connectionError = error.message || getRequestError(error);
+        if (error.status) {
+          $scope.connectionError = getRequestError(error);
+        }
+        $scope.connectionStatus = 'Supabase connection failed';
+      })
+      .finally(function() {
+        $scope.isLoading = false;
+      });
+  };
+
+  $scope.loadStudents();
 
 });

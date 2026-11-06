@@ -11,10 +11,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="style.css">
   
-  <!-- AngularJS 1.8.2 CDN -->
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+  <!-- Local Supabase project configuration; add your anon/public key in this file. -->
+  <script src="supabase-config.js"></script>
+  <!-- Load the installed AngularJS build so the app also works without network access. -->
+  <script src="node_modules/angular/angular.min.js"></script>
 </head>
 <body ng-controller="StudentController">
 
@@ -34,8 +36,8 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export CSV
         </button>
-        <button class="btn btn-outline" ng-click="resetToSampleData()" title="Restore default sample students">
-          Reset Data
+        <button class="btn btn-outline" ng-click="resetToSampleData()" ng-disabled="isLoading" title="Add any missing sample students without removing existing records">
+          Restore Samples
         </button>
       </div>
     </div>
@@ -72,6 +74,13 @@
       </div>
     </div>
   </header>
+
+  <section class="connection-banner" ng-class="{'connection-error': connectionError}" aria-live="polite">
+    <span class="connection-indicator" aria-hidden="true"></span>
+    <strong>{{ connectionStatus }}</strong>
+    <span class="connection-message" ng-if="connectionError">{{ connectionError }}</span>
+    <button class="btn btn-sm btn-outline" ng-if="connectionError" ng-click="loadStudents()">Retry</button>
+  </section>
 
   <!-- ========================================================
        SEARCH & FILTER CONTROL TOOLBAR
@@ -156,11 +165,11 @@
               placeholder="e.g. Ananya Rao" 
               ng-model="formData.name" 
               required
-              ng-minlength="3">
+              maxlength="100">
             <div class="error-msg" ng-show="formSubmitted && studentFormEl.name.$invalid">
               <span ng-show="studentFormEl.name.$error.required">Full name is required.</span>
-              <span ng-show="studentFormEl.name.$error.minlength">Name must have at least 3 letters.</span>
             </div>
+            <div class="error-msg" ng-show="formSubmitted && nameValidationError">Full name cannot be blank.</div>
           </div>
 
           <!-- Roll Number -->
@@ -174,11 +183,13 @@
               placeholder="e.g. CS101, EC204" 
               ng-model="formData.rollNo" 
               required
-              ng-pattern="/^[A-Z]{2}[0-9]{3}$/">
-            <small class="help-text">Pattern: 2 letters department + 3 digits (e.g. CS101, EC204)</small>
+              ng-pattern="/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/i"
+              ng-minlength="3"
+              maxlength="20">
+            <small class="help-text">Use at least 3 letters or numbers; hyphens are allowed (e.g. CS101 or 2024-CS-101).</small>
             <div class="error-msg" ng-show="formSubmitted && (studentFormEl.rollNo.$invalid || duplicateRollError)">
               <span ng-show="studentFormEl.rollNo.$error.required">Roll number is required.</span>
-              <span ng-show="studentFormEl.rollNo.$error.pattern">Must follow pattern (e.g. CS101, ME402).</span>
+              <span ng-show="studentFormEl.rollNo.$error.pattern">Use letters and numbers with optional hyphens only.</span>
               <span ng-show="duplicateRollError">Roll number already exists in cohort!</span>
             </div>
           </div>
@@ -208,7 +219,7 @@
                 type="number" 
                 id="gpa" 
                 name="gpa" 
-                step="0.1" 
+                step="any"
                 min="0" 
                 max="10" 
                 class="form-control" 
@@ -247,10 +258,13 @@
             </div>
           </div>
 
+          <p class="success-message" role="status" ng-if="successMessage">{{ successMessage }}</p>
+
           <!-- Action Buttons -->
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary btn-block">
-              {{ isEditing ? 'Update Student Record' : 'Register Student' }}
+            <div class="error-msg" role="alert" ng-if="formError">{{ formError }}</div>
+            <button type="submit" class="btn btn-primary btn-block" ng-disabled="isSaving || isLoading">
+              {{ isSaving ? 'Saving to Supabase...' : (isEditing ? 'Update Student Record' : 'Register Student') }}
             </button>
             <button type="button" class="btn btn-secondary btn-block" ng-show="isEditing" ng-click="cancelEdit()">
               Cancel Editing
@@ -297,8 +311,12 @@
               </tr>
             </thead>
             <tbody>
+              <tr ng-if="isLoading">
+                <td colspan="7" class="empty-state">Loading student records from Supabase...</td>
+              </tr>
+
               <!-- Empty State -->
-              <tr ng-if="(students | filter:customFilter).length === 0">
+              <tr ng-if="!isLoading && (students | filter:customFilter).length === 0">
                 <td colspan="7" class="empty-state">
                   <div class="empty-content">
                     <p class="empty-title">No student records match the active query</p>
@@ -401,7 +419,9 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" ng-click="cancelDelete()">Cancel</button>
-        <button class="btn btn-danger" ng-click="confirmDelete()">Yes, Delete Record</button>
+        <button class="btn btn-danger" ng-click="confirmDelete()" ng-disabled="isDeleting">
+          {{ isDeleting ? 'Deleting...' : 'Yes, Delete Record' }}
+        </button>
       </div>
     </div>
   </div>
